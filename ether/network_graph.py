@@ -3,9 +3,7 @@
 #
 
 ##############################################################################
-from packet_parser import PacketParser
-from cpyrit.pckttools import PcapDevice  # , AccessPoint, Station
-from monitor import Monitor
+from cether.pckttools import PcapDevice, PacketParser  # , AccessPoint, Station
 from time import sleep
 from multi_graph import MultiGraph, Center, Node
 import logging
@@ -30,7 +28,6 @@ class NetworkGraph(object):
 
         self.iface = iface
         self.pcapDevice = PcapDevice()
-        self.monitor = None
         self.fStop = False
         self.fStoped = True
 
@@ -42,15 +39,15 @@ class NetworkGraph(object):
     def open(self, iface=None):
         if iface is None:
             iface = self.iface
-        self.monitor = Monitor()
-        self.monitor.open(iface)
-        self.pcapDevice.open_live(self.monitor.ifaceMon)
+        assert(iface is not None)
+        self.iface = iface
+        self.pcapDevice.open_live(self.iface.open())
 
     def close(self):
-        if self.monitor:
+        if self.iface:
             self.stop()
-            self.monitor.close()
             self.pcapDevice.close()
+            self.iface.close()
 
     def parse(self):
         self.packetParser.parse_pcapdevice(self.pcapDevice)

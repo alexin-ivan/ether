@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Эфир</string>
   </property>
   <widget class="QWidget" name="centralwidget"/>
   <widget class="QMenuBar" name="menubar">
@@ -27,7 +27,6 @@
     <property name="title">
      <string>Настройки</string>
     </property>
-    <addaction name="actionIface"/>
     <addaction name="actionExit"/>
    </widget>
    <widget class="QMenu" name="menuMode">

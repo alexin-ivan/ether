@@ -2,9 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 ##############################################################################
-#from monitor import Monitor
-from cpyrit import pckttools
-from cpyrit.pckttools import PcapDevice
+from cether import pckttools
 ##############################################################################
 
 
@@ -44,7 +42,7 @@ class PacketParser(pckttools.PacketParser):
            their presence.
         """
 
-        if not isinstance(reader, PcapDevice):
+        if not isinstance(reader, pckttools.PcapDevice):
             raise TypeError("Argument must be of type PcapDevice")
         sta_callback = self.new_station_callback
         ap_callback = self.new_ap_callback

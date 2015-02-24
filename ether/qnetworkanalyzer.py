@@ -6,16 +6,16 @@
 import sys
 import logging
 from PyQt4.QtGui import (
-    QTabWidget, QMainWindow, QApplication, QVBoxLayout, QDialog
+    QTabWidget, QMainWindow, QApplication, QVBoxLayout
 )
 from PyQt4.QtCore import (
     QString
 )
 from stalist import QStaList
+from iflist import IFlist
 from qmultigraph_widget import QNetworkGraphViewer
 from qnetwork_graph import QNetworkGraph
-from mainwindow_ui import Ui_MainWindow
-from select_iface_dialog_ui import Ui_Dialog as SelectDialogUi
+from ui.mainwindow_ui import Ui_MainWindow as MainWindowUi
 ##############################################################################
 
 
@@ -40,10 +40,9 @@ class MainWindow(QMainWindow):
         self.graph = QNetworkGraph()
 
         # setup ui
-        ui = Ui_MainWindow()
+        ui = MainWindowUi()
         ui.setupUi(self)
         ui.actionExit.triggered.connect(self.close)
-        ui.actionIface.triggered.connect(self.selectIfaceDialog)
         ui.actionScan.triggered.connect(self.scanEnable)
 
         # add tab
@@ -68,7 +67,7 @@ class MainWindow(QMainWindow):
         self.retranslateUi(ui)
 
         self.ui = ui
-        self.iface = 'wlan2'
+        self.ifaceList = IFlist()
 
     def createGraphWidget(self):
         w = QNetworkGraphViewer(self.graph)
@@ -95,21 +94,11 @@ class MainWindow(QMainWindow):
     def scanEnable(self, t):
         if t:
             logging.debug('Start parsing')
-            self.graph.open(self.iface)
+            self.graph.open(self.ifaceList.get_iface())
             self.graph.start()
         else:
             self.graph.close()
             logging.debug('Stop parsing')
-
-    def selectIfaceDialog(self):
-        self.iface = 'wlan2'
-        ui = SelectDialogUi()
-        dialog = QDialog()
-        ui.setupUi(dialog)
-        result = dialog.exec_()
-        if result:
-            self.iface = str(ui.lineEdit.text())
-        logging.debug('Selected %s iface', self.iface)
 
 
 def main():

@@ -3,11 +3,6 @@
 #
 
 ##############################################################################
-#from packet_parser import PacketParser
-#from cpyrit.pckttools import PcapDevice  # , AccessPoint, Station
-#from monitor import Monitor
-#from time import sleep
-#from MultiGraph import MultiGraph
 from network_graph import NetworkGraph
 from qparser import QParser
 from PyQt4.QtCore import QObject, pyqtSignal

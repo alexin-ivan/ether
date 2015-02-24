@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainwindow.ui'
 #
-# Created: Wed Feb 18 15:59:08 2015
+# Created: Tue Feb 24 10:01:40 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -48,7 +48,6 @@ class Ui_MainWindow(object):
         self.actionScan = QtGui.QAction(MainWindow)
         self.actionScan.setCheckable(True)
         self.actionScan.setObjectName(_fromUtf8("actionScan"))
-        self.menuSettings.addAction(self.actionIface)
         self.menuSettings.addAction(self.actionExit)
         self.menuMode.addAction(self.actionScan)
         self.menubar.addAction(self.menuSettings.menuAction())
@@ -58,7 +57,7 @@ class Ui_MainWindow(object):
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow", None))
+        MainWindow.setWindowTitle(_translate("MainWindow", "Эфир", None))
         self.menuSettings.setTitle(_translate("MainWindow", "Настройки", None))
         self.menuMode.setTitle(_translate("MainWindow", "Режим работы", None))
         self.actionIface.setText(_translate("MainWindow", "Установить интерфейс", None))

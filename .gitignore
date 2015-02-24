@@ -5,3 +5,7 @@ tags
 .*.swp
 *.pyc
 *.pyo
+.ropeproject
+*.swp
+*.o
+*.so
