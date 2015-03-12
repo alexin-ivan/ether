@@ -9,3 +9,7 @@ tags
 *.swp
 *.o
 *.so
+*.*.bak
+html
+run.sh
+tmpdir

@@ -59,15 +59,31 @@ def callProcWithLog(popenargs):
     )
     stdout, stderr = proc.communicate()
     if stdout:
-        logging.info('[%s]', popenargs[0], stdout)
+        logging.info('[%s] %s', popenargs[0], stdout)
     if stderr:
-        logging.error('[%s]', popenargs[0], stderr)
+        logging.error('[%s] %s', popenargs[0], stderr)
 
     return proc.returncode
 
 
 def callWithoutOutput(popenargs):
     return call(popenargs, stdout=DN, stderr=DN)
+
+
+def readProcess(popenargs):
+    proc = Popen(
+        popenargs,
+        stdout=PIPE,
+        stderr=PIPE
+    )
+    stdout, stderr = proc.communicate()
+    if stderr:
+        logging.error('[%s]', popenargs[0], stderr)
+
+    if proc.returncode:
+        raise Exception('Call error: %d code' % proc.returncode)
+
+    return str(stdout)
 
 
 def get_mac_address(iface):
@@ -92,9 +108,10 @@ def mac_anonymize(iface):
     """
         Changes MAC address of 'iface' to a random MAC.
         Only randomizes the last 6 digits of the MAC,
-            so the vender says the same.
+        so the vender says the same.
         Stores old MAC address and the interface in ORIGINAL_IFACE_MAC
     """
+
     # Store old (current) MAC address
     proc = Popen(['ifconfig', iface], stdout=PIPE, stderr=DN)
     proc.wait()

@@ -6,6 +6,7 @@ import tempfile
 import warnings
 import sys
 import gzip
+import logging
 ##############################################################################
 from pcaplib import PcapDevice as CPcapDevice
 ##############################################################################
@@ -460,6 +461,8 @@ class PcapDevice(CPcapDevice):
         self.filtered_stations = set()
         if fname:
             self.open_offline(fname)
+        self.logger = logging.getLogger('PcapDevice')
+        self.cRef = 0
 
     def _setup(self):
         try:
@@ -515,8 +518,15 @@ class PcapDevice(CPcapDevice):
 
     def open_live(self, device_name):
         """Open a device for capturing packets"""
+        self.logger.debug('open_live() %d' % self.cRef)
         CPcapDevice.open_live(self, device_name)
         self._setup()
+        self.cRef += 1
+
+    def close(self):
+        self.logger.debug('close() %d' % self.cRef)
+        super(PcapDevice, self).close()
+        self.cRef -= 1
 
     def open_offline(self, fname):
         """Open a pcap-savefile"""

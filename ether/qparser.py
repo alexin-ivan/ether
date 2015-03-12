@@ -12,8 +12,9 @@ class QParser(QtCore.QThread):
     def __init__(self, f, parent=None):
         super(QParser, self).__init__(parent)
         self.f = f
+        self.logger = logging.getLogger('QParser')
 
     def run(self):
-        logging.debug('QParser: started')
+        self.logger.debug('started')
         self.f()
-        logging.debug('QParser: stoped')
+        self.logger.debug('stoped')

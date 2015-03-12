@@ -15,13 +15,17 @@ _attacks = [
 class AttackManager(object):
 
     def __init__(self):
-        self.attacks = map(lambda x: x(self), _attacks)
+        attacks = map(lambda x: x(self), _attacks)
+        keys = map(lambda x: x.key(), attacks)
+        if len(keys) != len(set(keys)):
+            raise Exception(
+                'Not unique keys in attacks scripts'
+            )
+        self.attacks = dict(map(lambda x: (x.key(), x), attacks))
 
-    def names(self):
-        for i in self.attacks:
-            yield i.name()
+    def attacks(self):
+        return self.attacks
 
-    def do(self, name, **kw):
-        for i in self.attacks:
-            if i.name() == name:
-                i.do(**kw)
+    def do(self, key, **kw):
+        attack = self.attacks[key]
+        attack.do(**kw)

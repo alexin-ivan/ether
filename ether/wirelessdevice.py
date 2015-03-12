@@ -17,16 +17,21 @@ class WiDevice(object):
         self.__ifaceMon = None
         if self.__monitorEnabled:
             self.fRandomMac = False
+            self.__ifaceMon = self.__iface
         else:
             self.fRandomMac = True
 
         self.started = False
+        self.logger = logging.getLogger('WiDevice')
 
     def iface(self):
         return self.__iface
 
     def monitor(self):
         return self.__ifaceMon
+
+    def monitorModeEnabled(self):
+        return self.__monitorEnabled
 
     def __str__(self):
         return 'dev<iface=%s, monitor=%s, frndMac=%s, mac=%s, rndMac=%s>' % (
@@ -36,6 +41,9 @@ class WiDevice(object):
             str(self.__defaultMac),
             str(self.__randomMac),
         )
+
+    def __repr__(self):
+        return str(self)
 
     def _anonymize_mac(self):
         self.__defaultMac, self.__randomMac = utils.mac_anonymize(self.__iface)
@@ -52,17 +60,17 @@ class WiDevice(object):
 
         cmd = ['iw', 'dev', self.__iface,
                'interface', 'add', self.__ifaceMon, 'type', 'monitor']
-        logging.info('Add monitor device: %s', ' '.join(cmd))
+        self.logger.info('Add monitor device: %s', ' '.join(cmd))
         if utils.callProcWithLog(cmd):
-            logging.warning('Trying delete monitor device')
+            self.logger.warning('Trying delete monitor device')
             self.started = True
             self._stopMonitor()
             self.started = False
-            logging.info('Add monitor device (again): %s', ' '.join(cmd))
+            self.logger.info('Add monitor device (again): %s', ' '.join(cmd))
             if utils.callProcWithLog(cmd):
                 raise Exception("Can't create monitor for %s" % self.__iface)
         cmd = ['ifconfig', self.__ifaceMon, 'up']
-        logging.info("up device")
+        self.logger.info("up device")
         if utils.callProcWithLog(cmd):
             raise Exception("Can't up device %s" % self.__ifaceMon)
         self.started = True
@@ -73,11 +81,11 @@ class WiDevice(object):
             if self.fRandomMac:
                 self._mac_change_back()
 
-            logging.info("down device")
+            self.logger.info("down device")
             cmd = ['ifconfig', self.__ifaceMon, 'down']
             if utils.callProcWithLog(cmd):
                 raise Exception("Can't down device %s" % self.__ifaceMon)
-            logging.info("Deleting monitor device")
+            self.logger.info("Deleting monitor device")
             cmd = ['iw', 'dev', self.__ifaceMon, 'del']
             if utils.callProcWithLog(cmd):
                 raise Exception("Can't delete device %s" % self.__ifaceMon)
@@ -86,9 +94,12 @@ class WiDevice(object):
 
     def open(self):
         if self.__monitorEnabled:
-            self.__ifaceMon = self.__iface
             return self.__ifaceMon
         return self._startMonitor()
+
+    def forwardClose(self):
+        self.started = True
+        self.close()
 
     def close(self):
         return self._stopMonitor()

@@ -6,7 +6,8 @@
 import sys
 import logging
 from PyQt4.QtGui import (
-    QTabWidget, QMainWindow, QApplication, QVBoxLayout
+    QTabWidget, QMainWindow, QApplication, QVBoxLayout,
+    QMessageBox
 )
 from PyQt4.QtCore import (
     QString
@@ -44,6 +45,7 @@ class MainWindow(QMainWindow):
         ui.setupUi(self)
         ui.actionExit.triggered.connect(self.close)
         ui.actionScan.triggered.connect(self.scanEnable)
+        ui.actionForwardClose.triggered.connect(self.forwardClose)
 
         # add tab
         layout = QVBoxLayout(ui.centralwidget)
@@ -69,6 +71,8 @@ class MainWindow(QMainWindow):
         self.ui = ui
         self.ifaceList = IFlist()
 
+        self.logger = logging.getLogger('MainWindow')
+
     def createGraphWidget(self):
         w = QNetworkGraphViewer(self.graph)
         return w
@@ -91,14 +95,34 @@ class MainWindow(QMainWindow):
         self.graph.close()
         super(MainWindow, self).close()
 
+    def forwardClose(self):
+        print 'forwardClose'
+        iface = self.ifaceList.get_iface()
+        if iface and iface.monitor():
+            print iface.monitor()
+            msgBox = QMessageBox()
+            msgBox.setText(_fromUtf8(
+                "Вы хотите выключить это устройство?"
+            ))
+            msgBox.setInformativeText(_fromUtf8(
+                "интерфейс <%s>" % iface.monitor()
+            ))
+            msgBox.setStandardButtons(
+                msgBox.StandardButtons(msgBox.Yes | msgBox.No)
+            )
+            result = msgBox.exec_()
+            if result == msgBox.Yes:
+                iface.forwardClose()
+                self.logger.debug('Forward closed: %s', iface)
+
     def scanEnable(self, t):
         if t:
-            logging.debug('Start parsing')
+            self.logger.debug('Start parsing')
             self.graph.open(self.ifaceList.get_iface())
             self.graph.start()
         else:
             self.graph.close()
-            logging.debug('Stop parsing')
+            self.logger.debug('Stop parsing')
 
 
 def main():

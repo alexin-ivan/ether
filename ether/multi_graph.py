@@ -5,7 +5,9 @@
 ##############################################################################
 import logging
 import netaddr
-import scapy.all
+import cether.pckttools as pckttools
+import networkx
+#import scapy.all
 ##############################################################################
 
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
@@ -23,17 +25,14 @@ BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 # Wireless distribution system (WDS) frame being distributed
 #       from one AP to another AP.
 
-
 def getAddresses(pkt):
-
+    """
+        0: ('dst', 'src', 'bssid', None),   from sta to sta
+        1: ('dst', 'bssid', 'src', None),   out of ds
+        2: ('bssid', 'src', 'dst', None),   in ds
+        3: ('recv', 'transl', 'dst', 'src')  between dss
+    """
     f = pkt.FCfield & 3  # to-DS and from-DS
-
-    #adrs_dict = {
-        #0: ('dst', 'src', 'bssid', None),  # from sta to sta
-        #1: ('dst', 'bssid', 'src', None),  # out of ds
-        #2: ('bssid', 'src', 'dst', None),  # in ds
-        #3: ('recv', 'transl', 'dst', 'src')   # between dss
-    #}
 
     if f == 0:
         adrs = ('destination', 'source', 'bssid', None)
@@ -69,29 +68,54 @@ def parseMac(mac):
     return result
 
 
+class Station(pckttools.Station):
+    pass
+
+
+class AccessPoint(pckttools.AccessPoint):
+    pass
+
+
+#class Node(object):
+
+    #def __init__(self, g, mac, **kwargs):
+        #self.mac = mac
+        #self.g = g
+        #for k, v in kwargs.iteritems():
+            #self.g[k] = v
+
+    #def name(self):
+        #return self.mac.replace(':', '-')
+
+    #def parseMac(self):
+        #return parseMac(self.mac)
+
+    #def __str__(self):
+        #return parseMac(self.mac)
+
 class Node(object):
-
-    def __init__(self, sta):
-        self.sta = sta
-
-    def key(self):
-        return self.sta.mac
-
-    def name(self):
-        return self.sta.mac.replace(':', '-')
-
-    def parseMac(self):
-        return parseMac(self.sta.mac)
-
-    def addSelfPacket(self, pkt):
-        pass
+    def __init__(self, **kwargs):
+        self.__dict__.update(**kwargs)
 
 
 class Edge(object):
-    def __init__(self):
+
+    def getPktCount(self):
+        return self.g['pktCount']
+
+    def setPckCount(self, v):
+        self.g['pktCount'] = v
+
+    pktCount = property(getPktCount, setPckCount)
+
+    def __init__(self, g, **kwargs):
+        self.g = g
         self.pktCount = 0
         self.keypktCount = 0
         self.fAuth = None
+
+        for k, v in kwargs.iteritems():
+            self.g[k] = v
 
     def addPacket(self, pkt):
         self.pktCount += 1
@@ -104,12 +128,6 @@ class Edge(object):
 
     def getInfo(self):
         return (self.pktCount, self.keypktCount, self.fAuth)
-
-    def authStatus(self):
-        if self.keypktCount == 4:
-            return 'Normal'
-        if self.keypktCount == 2:
-            return 'Half'
 
 
 class Essid(object):
@@ -127,153 +145,258 @@ class Essid(object):
         return tmp
 
 
-class Center(object):
-    def __init__(self, ap):
-        self.ap = ap
-
-    def name(self):
-        return self.ap.mac.replace(':', '-')
-
-    def hName(self):
-        if self.ap.essid:
-            s = Essid(self.ap.essid)
-            return s.normalize()
-        else:
-            return "<Unamed>"
-
-    def essid(self):
-        return self.ap.essid
-
-    def key(self):
-        return self.ap.mac
-
-    def parseMac(self):
-        return parseMac(self.ap.mac)
+def getNormalName(mac):
+    return mac.replace(':', '-')
 
 
-class Graph(object):
-
-    def __init__(self, center):
-        self.center = center
-        self.stations = []
-        self.edges = {}
-        self.pCount = 0
-
-    def addNode(self, sta):
-        if sta not in self.stations:
-            self.stations.append(sta)
-            edge = Edge()
-            self.edges[sta.key()] = edge
-
-    def addSelfPacket(self, pkt):
-        self.pCount += 1
-
-    def addPacket(self, sta, pkt):
-        edge = self.edges.get(sta.key())
-        assert(edge)
-        edge.addPacket(pkt)
-        self.pCount += 1
-
-    def key(self):
-        return self.center.key()
-
-    def name(self):
-        return self.center.name()
-
-    def hName(self):
-        return self.center.hName()
-
-    def essid(self):
-        return self.center.essid()
-
-    def nodes(self):
-        for sta in self.stations:
-            edge = self.edges[sta.key()]
-            yield (sta, edge)
-
-    def parseMac(self):
-        return self.center.parseMac()
+def getNormalEssid(essid):
+    if essid:
+        s = Essid(essid)
+        return s.normalize()
+    else:
+        return "Unamed"
 
 
 class MultiGraph(object):
     def __init__(self):
-        self.graphs = {}
+        self.g = networkx.DiGraph()
+        self.logger = logging.getLogger('MultiGraph')
 
-    def getGraphs(self):
-        return self.graphs.keys()
+    def addAP(self, ap):
+        if ap.mac in self.g:
+            return
 
-    def addGraph(self, center):
-        graph = Graph(center)
-        self.graphs[center.key()] = graph
-        return graph
+        nMac = getNormalName(ap.mac)
+        nEssid = getNormalEssid(ap.essid)
+        vendor = parseMac(ap.mac)
+        logging.debug('Found ap: %s', ap.mac)
 
-    def getGraph(self, center):
-        return self.graphs.get(center.key())
+        self.g.add_node(
+            ap.mac,
+            mac=ap.mac,
+            nEssid=nEssid,
+            essid=ap.essid,
+            nMac=nMac,
+            vendor=vendor,
+            label="AP: %s '%s'" % (nMac, nEssid),
+            nType='AP'
+        )
+        return ap.mac
 
-    def getEdge(self, sta_mac):
-        for i in self.graphs.iteritems():
-            centerID, graph = i
-            for n, e in graph.nodes():
-                if n.key() == sta_mac:
-                    yield (n, e)
+    def addSta(self, sta):
+        if sta.mac in self.g:
+            return
 
-    def getEdgeCmp(self, f):
-        for i in self.graphs.iteritems():
-            centerID, graph = i
-            for n, e in graph.nodes():
-                res = f(centerID, n, e)
-                if res is not None:
-                    yield res
+        nMac = getNormalName(sta.mac)
+        vendor = parseMac(sta.mac)
+        logging.debug('Found sta: %s', sta.mac)
+        self.g.add_node(
+            sta.mac,
+            mac=sta.mac,
+            nMac=nMac,
+            vendor=vendor,
+            label='STA: %s' % nMac,
+            nType='STA'
+        )
+        if sta.ap:
+            u_mac = sta.ap.mac
+            v_mac = sta.mac
+            if u_mac not in self.g.nodes():
+                self.addAP(sta.ap)
+            self.g.add_edge(
+                u_mac,
+                v_mac,
+                label='"Unknown"',
+                color="red"
+            )
 
-    def addEdgeInfoKeypkt(self, sta, idx, pkt):
-        for n, e in self.getEdge(sta):
-            e.addKeyPacket(pkt, idx)
+        return sta.mac
 
-    def addEdgeInfoAuth(self, sta, auth):
-        logging.debug('<<<<<<<<AUTH>>>>>>>>>')
-        for n, e in self.getEdge(sta):
-            e.fAuth = auth
+    def addKeypkt(self, sta, idx, pkt):
+        logging.debug('Keypkt: %s', sta.mac)
+        #raise NotImplementedError
 
-    def addEdgeInfoAny(self, pkt):
+    def addAuth(self, sta, auth):
+        logging.debug('Auth: %s', sta.mac)
+        #raise NotImplementedError
+
+    def addPacket(self, pkt):
         ra = getAddresses(pkt)
         sta_mac = ra.destination
         if sta_mac == BROADCAST_MAC:
             return
+        #raise NotImplementedError
 
-        adrs = [pkt.addr1, pkt.addr2, pkt.addr3, pkt.addr4]
+    def getNxGraph(self):
+        return self.g
 
-        def fCmp(ap_mac, sta, e):
-            sta_mac = sta.key()
-            if ap_mac == ra.bssid \
-               and ap_mac == ra.bssid \
-               and sta_mac == ra.destination:
-                return (ap_mac, sta, 0, e)
-            elif ap_mac == ra.bssid \
-                    and ap_mac == ra.destination \
-                    and sta_mac == ra.source:
-                return (ap_mac, sta, 1, e)
+    def getAPs(self):
+        aps = []
+        for ix in self.g.nodes():
+            n = self.g.node[ix]
+            if n.get('nType') == 'AP':
+                aps.append(n)
 
-            if adrs[0] == ap_mac and all([(i is None) for i in adrs[1:]]):
-                return (ap_mac, None, 0, None)
-            if adrs[0] == sta_mac and all([(i is None) for i in adrs[1:]]):
-                return (None, sta, 1, None)
+        return sorted(aps, key=lambda x: x['mac'])
 
-            return None
+#class Graph(object):
 
-        r = filter(lambda x: x is not None, list(self.getEdgeCmp(fCmp)))
-        for c, n, d, e in r:
-            if e:
-                if d == 0:
-                    e.addPacket(pkt)
-                elif d == 1:
-                    e.addReversePacket(pkt)
-            elif n is None:
-                self.graphs[c].addSelfPacket(pkt)
-            elif c is None and d == 1:
-                n.addSelfPacket(pkt)
+    #def __init__(self, center):
+        #self.center = center
+        #self.stations = {}
+        #self.edges = []
+        #self.pCount = 0
 
-        if not r:
-            logging.debug("Cant find staions: %s, %s", pkt.summary(), str(ra.__dict__))
+    #def addNode(self, sta_mac):
+        #if sta_mac not in self.stations:
+            #station = Station(sta_mac)
+            #self.stations[sta_mac] = station
+            #edge = Edge(self.center, station)
+            #self.edges.append(edge)
 
-    def getGraphByName(self, key):
-        return self.graphs.get(key)
+    #def addEdge(self, v_mac, u_mac):
+
+        #if v_mac == self.center and u_mac not in self.stations:
+            #return self.addNode(u_mac)
+
+        #if v_mac not in self.stations and u_mac == self.center:
+            #return self.addNode(v_mac)
+
+        #vStation = Station(v_mac)
+        #uStation = Station(u_mac)
+
+        #self.stations[v_mac] = vStation
+        #self.stations[u_mac] = uStation
+
+        #edge = Edge(vStation, uStation)
+
+        #self.edges.append(edge)
+
+    #def addSelfPacket(self, pkt):
+        #self.pCount += 1
+
+    #def addPacket(self, sta, pkt):
+        #edge = self.edges.get(sta.key())
+        #assert(edge)
+        #edge.addPacket(pkt)
+        #self.pCount += 1
+
+    #def key(self):
+        #return self.center.key()
+
+    #def name(self):
+        #return self.center.name()
+
+    #def hName(self):
+        #return self.center.hName()
+
+    #def essid(self):
+        #return self.center.essid()
+
+    #def getEdgesForNode(self, node):
+        #pass
+
+
+    #def nodes(self):
+        #for sta in self.stations.values():
+            #edge = self.getEdgesForNode(sta)
+            #yield (sta, edge)
+
+    #def parseMac(self):
+        #return self.center.parseMac()
+
+
+#class MultiGraph(object):
+    #def __init__(self):
+        #self.graphs = {}
+
+    #def getGraphs(self):
+        #return self.graphs.keys()
+
+    #def addGraph(self, center):
+        #graph = Graph(center)
+        #self.graphs[center.key()] = graph
+        #return graph
+
+    #def getGraph(self, center):
+        #return self.graphs.get(center.key())
+
+    #def getEdge(self, sta_mac):
+        #for i in self.graphs.iteritems():
+            #centerID, graph = i
+            #for n, e in graph.nodes():
+                #if n.key() == sta_mac:
+                    #yield (n, e)
+
+    #def getEdgeCmp(self, f):
+        #for i in self.graphs.iteritems():
+            #centerID, graph = i
+            #for n, e in graph.nodes():
+                #res = f(centerID, n, e)
+                #if res is not None:
+                    #yield res
+
+    #def addEdgeInfoKeypkt(self, sta, idx, pkt):
+        #for n, e in self.getEdge(sta):
+            #e.addKeyPacket(pkt, idx)
+
+    #def addEdgeInfoAuth(self, sta, auth):
+        #logging.debug('<<<<<<<<AUTH>>>>>>>>>')
+        #for n, e in self.getEdge(sta):
+            #e.fAuth = auth
+
+    #def addEdgeInfoAny(self, pkt):
+        #ra = getAddresses(pkt)
+        #sta_mac = ra.destination
+        #if sta_mac == BROADCAST_MAC:
+            #return
+
+        #adrs = [pkt.addr1, pkt.addr2, pkt.addr3, pkt.addr4]
+
+        #def fCmp(ap_mac, sta, e):
+            #sta_mac = sta.key()
+            #if ap_mac == ra.bssid \
+               #and ap_mac == ra.bssid \
+               #and sta_mac == ra.destination:
+                #return (ap_mac, sta, 0, e)
+            #elif ap_mac == ra.bssid \
+                    #and ap_mac == ra.destination \
+                    #and sta_mac == ra.source:
+                #return (ap_mac, sta, 1, e)
+
+            #if adrs[0] == ap_mac and all([(i is None) for i in adrs[1:]]):
+                #return (ap_mac, None, 0, None)
+            #if adrs[0] == sta_mac and all([(i is None) for i in adrs[1:]]):
+                #return (None, sta, 1, None)
+
+            #return None
+
+        #r = filter(lambda x: x is not None, list(self.getEdgeCmp(fCmp)))
+        #for c, n, d, e in r:
+            #if e:
+                #if d == 0:
+                    #e.addPacket(pkt)
+                #elif d == 1:
+                    #e.addReversePacket(pkt)
+            #elif n is None:
+                #self.graphs[c].addSelfPacket(pkt)
+            #elif c is None and d == 1:
+                #n.addSelfPacket(pkt)
+
+        #if not r:
+            #if ra.f == 1L:
+                #lan_mac = ra.destination
+                #sta_mac = ra.source
+                #ap_mac = ra.bssid
+                #for imac in self.graphs.keys():
+                    #if imac == ap_mac:
+                        #g = self.graphs[ap]
+                        #g.addOutDsEdge(sta_mac, lan_mac)
+
+
+
+            #logging.debug("Cant find staions: %s, %s", pkt.summary(),
+            #str(ra.__dict__))
+
+    #def getGraphByName(self, key):
+        #return self.graphs.get(key)

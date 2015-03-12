@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainwindow.ui'
 #
-# Created: Tue Feb 24 10:01:40 2015
+# Created: Wed Mar 11 13:45:04 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -48,6 +48,9 @@ class Ui_MainWindow(object):
         self.actionScan = QtGui.QAction(MainWindow)
         self.actionScan.setCheckable(True)
         self.actionScan.setObjectName(_fromUtf8("actionScan"))
+        self.actionForwardClose = QtGui.QAction(MainWindow)
+        self.actionForwardClose.setObjectName(_fromUtf8("actionForwardClose"))
+        self.menuSettings.addAction(self.actionForwardClose)
         self.menuSettings.addAction(self.actionExit)
         self.menuMode.addAction(self.actionScan)
         self.menubar.addAction(self.menuSettings.menuAction())
@@ -62,5 +65,9 @@ class Ui_MainWindow(object):
         self.menuMode.setTitle(_translate("MainWindow", "Режим работы", None))
         self.actionIface.setText(_translate("MainWindow", "Установить интерфейс", None))
         self.actionExit.setText(_translate("MainWindow", "Выход", None))
+        self.actionExit.setShortcut(_translate("MainWindow", "Alt+X", None))
         self.actionScan.setText(_translate("MainWindow", "Сканирование", None))
+        self.actionScan.setShortcut(_translate("MainWindow", "Alt+1", None))
+        self.actionForwardClose.setText(_translate("MainWindow", "Принудительно закрыть интерфейс", None))
+        self.actionForwardClose.setShortcut(_translate("MainWindow", "Alt+2", None))
 

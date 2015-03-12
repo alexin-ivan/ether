@@ -41,7 +41,7 @@ class QStaList(QtGui.QWidget):
         graph.updateGraph.connect(self.updateGraph)
         self.attackManager = AttackManager()
 
-    def drawGraph(self, gKey):
+    def drawGraph(self):
         if self.gw is not None:
             self.gw.hide()
             self.layout.removeWidget(self.gw)
@@ -52,12 +52,9 @@ class QStaList(QtGui.QWidget):
         gw.setColumnCount(self._columns())
         for row in xrange(self._rows()):
             data = self._getRow(row)
-            for column, info in data[1].iteritems():
+            for column, info in enumerate(data[1]):
                 item = QTableWidgetItem(info)
                 gw.setItem(row, column, item)
-
-            if data[0] == gKey:
-                gw.setCurrentCell(row, 0)
 
         gw.setHorizontalHeaderLabels(
             map(lambda x: x[0], self.sections)
@@ -70,29 +67,32 @@ class QStaList(QtGui.QWidget):
         self.gw = gw
 
     def _rows(self):
-        return len(self.graph.getGraphs())
+        return len(self.graph.getAPs())
 
     def _columns(self):
         return len(self.sections)
 
     def _getRow(self, row):
-        graphs = self.graph.getGraphs()
-        rowKeys = sorted(graphs.keys())
-        g = graphs[rowKeys[row]]
+        aps = self.graph.getAPs()
+        ap = aps[row]
 
-        mac = rowKeys[row]
-        essid = g.hName()
-        pCount = g.pCount
-        oui, _ = g.parseMac()
+        mac = ap['mac']
+        essid = ap['nEssid']
+        pCount = 0  # TODO
+        vendor = ap['vendor']
+        if vendor[1] is None:
+            vendor = "<Unknown>"
+        else:
+            vendor = vendor[0]
         if pCount == 0:
             pCount = "N/A"
 
-        info = dict(zip([0, 1, 2, 3], [mac, essid, str(pCount), str(oui)]))
+        info = [mac, essid, str(pCount), str(vendor)]
 
         return (mac, info)
 
-    def updateGraph(self, gKey):
-        self.drawGraph(gKey)
+    def updateGraph(self):
+        self.drawGraph()
 
     def open(self, iface=None):
         self.graph.open(iface)
@@ -106,34 +106,27 @@ class QStaList(QtGui.QWidget):
 
     def generateAttackMenu(self, index):
         row = index.row()
-        #column = index.column()
         menu = QMenu(self)
 
-        graphs = self.graph.getGraphs()
-        rowKeys = sorted(graphs.keys())
-        mac = rowKeys[row]
-        ifaceMon = self.graph.monitor.ifaceMon
-        essid = graphs[mac].essid()
-        clients = map(lambda x: x[0].key(), graphs[mac].nodes())
+        aps = self.graph.getAPs()
+        ap = aps[row]
+        iface = self.graph.iface
 
         am = self.attackManager
 
-        def get_callback(name):
+        def attack_callback(key):
             def do(x):
-                self.graph.stop()
-                am.do(
-                    name,
-                    mac=mac,
-                    ifaceMon=ifaceMon,
-                    essid=essid,
-                    clients=clients
-                )
-                self.graph.start()
+                #self.graph.suspend()
+                self.graph.suspend()
+                am.do(key, graph=self.graph.mgraph, ap=ap, iface=iface)
+                self.graph.resume()
+
             return do
 
-        for name in am.names():
+        for key, attack in am.attacks.iteritems():
+            name = attack.name()
             action = QAction(name, self)
-            action.triggered.connect(get_callback(name))
+            action.triggered.connect(attack_callback(key))
             action.setStatusTip(_fromUtf8(u"Вид атаки: %s" % name))
             menu.addAction(action)
 

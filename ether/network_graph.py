@@ -5,13 +5,31 @@
 ##############################################################################
 from cether.pckttools import PcapDevice, PacketParser  # , AccessPoint, Station
 from time import sleep
-from multi_graph import MultiGraph, Center, Node
+from multi_graph import MultiGraph
 import logging
+##############################################################################
+
+
+class Callback(object):
+
+    def __init__(self, f):
+        self.__subs = [f]
+
+    def subscribe(self, f):
+        self.__subs.append(f)
+
+    def __call__(self, x):
+        for f in self.__subs:
+            yield f(x)
+
+
 ##############################################################################
 
 
 class NetworkGraph(object):
     def __init__(self, iface=None):
+
+        self.pkt_callback = Callback(self.pkt_callback)
 
         callbacks = dict(
             new_ap_callback=self.ap_callback,
@@ -33,8 +51,8 @@ class NetworkGraph(object):
 
         self.mgraph = MultiGraph()
 
-    def getGraphs(self):
-        return self.mgraph.graphs
+    def getAPs(self):
+        return self.mgraph.getAPs()
 
     def open(self, iface=None):
         if iface is None:
@@ -58,43 +76,32 @@ class NetworkGraph(object):
         self.fStop = True
         sleep(1)
 
+    def _update(self, needUpdate):
+        if needUpdate:
+            self.update_graph_callback()
+
     def ap_callback(self, ap):
-        exists = self.mgraph.getGraph(Center(ap))
-        if exists is None:
-            g = self.mgraph.addGraph(Center(ap))
-            self.update_graph_callback(g.key())
+        self._update(self.mgraph.addAP(ap))
 
     def sta_callback(self, sta):
-        ap = self.mgraph.getGraph(Center(sta.ap))
-        if ap is None:
-            logging.debug('add station for ap: %s; MAC: %s', sta.ap, sta.mac)
-            self.ap_callback(sta.ap)
-            ap = self.mgraph.getGraph(Center(sta.ap))
-            if ap is None:
-                for k in self.mgraph.graphs.keys():
-                    print '\t', k.key()
-        ap.addNode(Node(sta))
-        self.update_graph_callback(ap.key())
+        self._update(self.mgraph.addSta(sta))
 
     def keypckt_callback(self, i):
         sta, idx, pkt = i
-        self.mgraph.addEdgeInfoKeypkt(Node(sta), idx, pkt)
-        ap = self.mgraph.getGraph(Center(sta.ap))
-        assert(ap)
-        self.update_graph_callback(ap.key())
+        self._update(self.mgraph.addKeypkt(sta, idx, pkt))
 
     def auth_callback(self, i):
         sta, auth = i
-        self.mgraph.addEdgeInfoAuth(Node(sta), auth)
-        ap = self.mgraph.getGraph(Center(sta.ap))
-        assert(ap)
-        self.update_graph_callback(ap.key())
+        self._update(self.mgraph.addAuth(sta, auth))
 
     def pkt_callback(self, i):
-        self.mgraph.addEdgeInfoAny(i)
+        self._update(self.mgraph.addPacket(i))
 
     def stop_callback(self, pkt):
         return self.fStop
 
     def update_graph_callback(self, name):
         raise NotImplementedError
+
+    def getNxGraph(self):
+        return self.mgraph.getNxGraph()

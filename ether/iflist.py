@@ -25,10 +25,11 @@ DN = open(os.devnull, 'wb')
 class IFlist(object):
     def __init__(self, iface=None):
         self.iface = None
+        self.logger = logging.getLogger('IFlist')
 
     def ask(self, title, select_title, variants, disableRndMac=False):
-        #if len(variants) == 1:
-            #return variants[0]
+        if len(variants) == 1:
+            return variants[0]
 
         ui = SelectDialogUi()
         dialog = QDialog()
@@ -46,8 +47,12 @@ class IFlist(object):
             fAnonymize = ui.cbAnonymize.isChecked()
             iface = variants[ix]
             iface.fRandomMac = fAnonymize
-        logging.debug('Selected %s iface in dialog', self.iface)
+        self.logger.debug('Selected %s iface in dialog', self.iface)
         return iface
+
+    def getMonitors(self):
+        monitors, _ = utils.getMonitorsAndAdaptersFromIwconfig()
+        return monitors
 
     def get_iface(self):
         monitors, adapters = utils.getMonitorsAndAdaptersFromIwconfig()
@@ -63,7 +68,7 @@ class IFlist(object):
                     # устройство существует, но его необходимо
                     # переключить в режим мониторинга
                     # valid adapter, enable monitor mode
-                    logging.warning(
+                    self.logger.warning(
                         'Could not find'
                         ' wireless interface "%s"'
                         ' in monitor mode' % self.iface
