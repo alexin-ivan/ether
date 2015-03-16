@@ -462,7 +462,6 @@ class PcapDevice(CPcapDevice):
         if fname:
             self.open_offline(fname)
         self.logger = logging.getLogger('PcapDevice')
-        self.cRef = 0
 
     def _setup(self):
         try:
@@ -518,15 +517,13 @@ class PcapDevice(CPcapDevice):
 
     def open_live(self, device_name):
         """Open a device for capturing packets"""
-        self.logger.debug('open_live() %d' % self.cRef)
+        self.logger.debug('open_live()')
         CPcapDevice.open_live(self, device_name)
         self._setup()
-        self.cRef += 1
 
     def close(self):
-        self.logger.debug('close() %d' % self.cRef)
+        self.logger.debug('close()')
         super(PcapDevice, self).close()
-        self.cRef -= 1
 
     def open_offline(self, fname):
         """Open a pcap-savefile"""
