@@ -8,6 +8,7 @@ from qparser import QParser
 from PyQt4.QtCore import QObject, pyqtSignal
 ##############################################################################
 from cether.pckttools import PcapDevice
+from scapy.layers.dot11 import RadioTap
 import logging
 
 
@@ -19,6 +20,7 @@ class QNetworkGraph(QObject, NetworkGraph):
         self.__logger = logging.getLogger('QNetworkGraph')
 
     updateGraph = pyqtSignal()
+    receivedPacket = pyqtSignal(RadioTap)
 
     def start(self):
         self.parser = QParser(self.parse, self)
@@ -28,6 +30,10 @@ class QNetworkGraph(QObject, NetworkGraph):
         NetworkGraph.close(self)
         del self.parser
         self.parser = None
+
+    def pkt_callback(self, pkt):
+        NetworkGraph.pkt_callback(self, pkt)
+        self.receivedPacket.emit(pkt)
 
     def update_graph_callback(self):
         self.updateGraph.emit()

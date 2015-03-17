@@ -456,6 +456,10 @@ class PacketParser(object):
         self.new_station_callback = sta_callback
         self.new_ap_callback = ap_callback
 
+    def _add_alone_device(self, pkt):
+        # TODO:
+        pass
+
     def parse_packet(self, pckt):
         """Parse one packet"""
 
@@ -480,6 +484,9 @@ class PacketParser(object):
         # Get a AP and it's ESSID from a ProbeResponse
         if scapy.layers.dot11.Dot11ProbeResp in dot11_pckt:
             self._add_ap(dot11_pckt.addr2, dot11_pckt)
+
+        if scapy.layers.dot11.Dot11ProbeReq in dot11_pckt:
+            self._add_alone_device(dot11_pckt)
 
         # From now on we are only interested in unicast packets
         if dot11_pckt.isFlagSet('FCfield', 'to-DS') \
@@ -542,3 +549,28 @@ class PacketParser(object):
 
     def __len__(self):
         return len(self.air)
+
+
+#class Dot11ControlFrame(scapy.layers.dot11.Dot11):
+    #pass
+
+
+#class Dot11NullFunction(scapy.layers.dot11.Dot11):
+
+    #def summary():
+        #return "NullFunction"
+
+
+#class Dot11ACK(scapy.layers.dot11.Dot11):
+
+    #def summary():
+        #return "ACK"
+
+
+#scapy.packet.bind_layers(scapy.layers.dot11.Dot11, Dot11ControlFrame, type=1)
+#scapy.packet.bind_layers(
+    #scapy.layers.dot11.Dot11, Dot11NullFunction, type=1, subtype=4
+#)
+#scapy.packet.bind_layers(
+    #scapy.layers.dot11.Dot11, Dot11ACK, type=1, subtype=13
+#)

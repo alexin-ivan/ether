@@ -6,33 +6,14 @@
 from cether.pckttools import PcapDevice, PacketParser  # , AccessPoint, Station
 from time import sleep
 from multi_graph import MultiGraph
-#import logging
-##############################################################################
-
-
-class Callback(object):
-
-    def __init__(self, f):
-        self.__subs = [f]
-
-    def subscribe(self, f):
-        self.__subs.append(f)
-
-    def unsubscribe(self, f):
-        self.__subs.remove(f)
-
-    def __call__(self, x):
-        for f in self.__subs:
-            yield f(x)
-
-
+import logging
 ##############################################################################
 
 
 class NetworkGraph(object):
     def __init__(self, iface=None):
 
-        self.pkt_callback = Callback(self.pkt_callback)
+        self.pkt_callback = self.pkt_callback
         self.mgraph = MultiGraph()
 
         args = dict(

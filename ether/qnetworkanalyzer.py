@@ -17,6 +17,7 @@ from iflist import IFlist
 from qmultigraph_widget import QNetworkGraphViewer
 from qnetwork_graph import QNetworkGraph
 from ui.mainwindow_ui import Ui_MainWindow as MainWindowUi
+from qpacketlist import QPacketList
 ##############################################################################
 
 
@@ -63,15 +64,24 @@ class MainWindow(QMainWindow):
         tabAPs.setObjectName(_fromUtf8("tabAPs"))
         tab.addTab(tabAPs, _fromUtf8("tabAPs"))
 
+        tabPckts = self.createPacketListViewer()
+        tabPckts.setObjectName(_fromUtf8("tabPckts"))
+        tab.addTab(tabPckts, _fromUtf8("tabPckts"))
+
         ui.tab = tab
         ui.tabGraph = tabGraph
         ui.tabAPs = tabAPs
+        ui.tabPckts = tabPckts
         self.retranslateUi(ui)
 
         self.ui = ui
         self.ifaceList = IFlist()
 
         self.logger = logging.getLogger('MainWindow')
+
+    def createPacketListViewer(self):
+        w = QPacketList(self.graph)
+        return w
 
     def createGraphWidget(self):
         w = QNetworkGraphViewer(self.graph)
@@ -89,6 +99,10 @@ class MainWindow(QMainWindow):
         ui.tab.setTabText(
             ui.tab.indexOf(ui.tabAPs),
             _translate("MainWindow", "Точки доступа", None)
+        )
+        ui.tab.setTabText(
+            ui.tab.indexOf(ui.tabPckts),
+            _translate("MainWindow", "Пакеты", None)
         )
 
     def close(self):
