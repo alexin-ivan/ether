@@ -109,7 +109,6 @@ def mac_anonymize(iface):
         Changes MAC address of 'iface' to a random MAC.
         Only randomizes the last 6 digits of the MAC,
         so the vender says the same.
-        Stores old MAC address and the interface in ORIGINAL_IFACE_MAC
     """
 
     # Store old (current) MAC address

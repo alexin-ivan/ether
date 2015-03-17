@@ -25,6 +25,7 @@ BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 # Wireless distribution system (WDS) frame being distributed
 #       from one AP to another AP.
 
+
 def getAddresses(pkt):
     """
         0: ('dst', 'src', 'bssid', None),   from sta to sta
@@ -206,7 +207,7 @@ class MultiGraph(object):
             self.g.add_edge(
                 u_mac,
                 v_mac,
-                label='"Unknown"',
+                label='"Data"',
                 color="red"
             )
 
@@ -219,6 +220,9 @@ class MultiGraph(object):
     def addAuth(self, sta, auth):
         logging.debug('Auth: %s', sta.mac)
         #raise NotImplementedError
+
+    def parsePacket(self, pkt):
+        pass
 
     def addPacket(self, pkt):
         ra = getAddresses(pkt)

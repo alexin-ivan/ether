@@ -126,37 +126,6 @@ PcapDevice_open_live(PcapDevice *self, PyObject *args)
     return Py_None;
 }
 
-PyDoc_STRVAR(PcapDevice_open_offline__doc__,
-    "open_offline(fname) ->None\n\n"
-    "Open a file for reading");
-static PyObject*
-PcapDevice_open_offline(PcapDevice *self, PyObject *args)
-{
-    char errbuf[PCAP_ERRBUF_SIZE], *fname;
-    
-    if (!PyArg_ParseTuple(args, "s", &fname))
-        return NULL;
-
-    if (self->status != 0)
-    {
-        PyErr_SetString(PyExc_RuntimeError, "Already opened.");
-        return NULL;
-    }
-
-    self->p = pcap_open_offline(fname, errbuf);
-    if (!self->p)
-    {
-        PyErr_Format(PyExc_IOError, "Failed to open file '%s' (libpcap: %s)", fname, errbuf);
-        return NULL;
-    }
-    
-    if (!PcapDevice_setup(self, "offline", fname))
-        return NULL;
-
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-
 PyDoc_STRVAR(PcapDevice_read__doc__,
     "read() -> tuple\n\n"
     "Read the next packet");
@@ -321,7 +290,6 @@ static PyMemberDef PcapDevice_members[] =
 static PyMethodDef PcapDevice_methods[] =
 {
     {"open_live", (PyCFunction)PcapDevice_open_live, METH_VARARGS, PcapDevice_open_live__doc__},
-    {"open_offline", (PyCFunction)PcapDevice_open_offline, METH_VARARGS, PcapDevice_open_offline__doc__},
     {"close", (PyCFunction)PcapDevice_close, METH_NOARGS, PcapDevice_close__doc__},
     {"read", (PyCFunction)PcapDevice_read, METH_NOARGS, PcapDevice_read__doc__},
     {"send", (PyCFunction)PcapDevice_send, METH_VARARGS, PcapDevice_send__doc__},

@@ -2,92 +2,23 @@
 # -*- coding: utf-8 -*-
 #
 ##############################################################################
-import tempfile
-import warnings
-import sys
-import gzip
-import logging
+import scapy.config
+import scapy.fields
+import scapy.layers.dot11
+import scapy.packet
+import scapy.utils
 ##############################################################################
-from pcaplib import PcapDevice as CPcapDevice
+from pcapdevice import PcapDevice
 ##############################################################################
-## utils
-
-
-class ScapyImportError(ImportError):
-    """ ScapyImportError is used to indicate failure to import scapy's modules.
-        Used to o separate other ImportErrors so code that tries to
-        import pckttools can continue in case Scapy is simply not installed.
-    """
-    pass
+# Suppress useless warnings from scapy...
+scapy.config.conf.logLevel = 40
+##############################################################################
 
 
 def str2hex(string):
     """Convert a string to it's hex-decimal representation."""
     return ''.join('%02x' % c for c in map(ord, string))
 
-
-class FileWrapper(object):
-    """A wrapper for easy stdin/stdout/gzip-handling"""
-
-    def __init__(self, filename, mode='rb'):
-        if isinstance(filename, str):
-            if filename == '-':
-                if 'r' in mode:
-                    self.f = sys.stdin
-                elif 'w' in mode or 'a' in mode:
-                    self.f = sys.stdout
-                else:
-                    raise ValueError("Unknown filemode '%s'" % mode)
-            elif filename.endswith('.gz'):
-                self.f = gzip.open(filename, mode, 6)
-            else:
-                self.f = open(filename, mode)
-        else:
-            self.f = filename
-        self.isclosed = False
-
-    def read(self, size=None):
-        return self.f.read(size)
-
-    def write(self, buf):
-        self.f.write(buf)
-
-    def seek(self, offset, whence=None):
-        self.f.seek(offset, whence)
-
-    def flush(self):
-        self.f.flush()
-
-    def close(self):
-        if not self.isclosed:
-            try:
-                self.f.close()
-            finally:
-                self.isclosed = True
-
-    def readlines(self):
-        return self.f.readlines()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, traceback):
-        self.close()
-
-    def __iter__(self):
-        return self.f.__iter__()
-
-
-try:
-    import scapy.config
-    # Suppress useless warnings from scapy...
-    scapy.config.conf.logLevel = 40
-    import scapy.fields
-    import scapy.layers.dot11
-    import scapy.packet
-    import scapy.utils
-except ImportError, e:
-    raise ScapyImportError(e)
 
 scapy.config.Conf.l2types.register_num2layer(
     119,
@@ -444,135 +375,6 @@ class Dot11PacketWriter(object):
         self.close()
 
 
-class PcapDevice(CPcapDevice):
-    """Read packets from a 'savefile' or a device using libpcap."""
-
-    # Standard filter to always exclude type control, general undirected \
-    # and broadcast
-    BASE_BPF = "not type ctl " \
-               " and not (dir fromds and wlan[4] & 0x01 = 1)" \
-               " and not (dir nods and not " \
-               "  (subtype beacon or subtype probe-resp or subtype assoc-req))"
-
-    def __init__(self, fname=None, use_bpf=False):
-        CPcapDevice.__init__(self)
-        self.use_bpf = use_bpf
-        self.filtered_aps = set()
-        self.filtered_stations = set()
-        if fname:
-            self.open_offline(fname)
-        self.logger = logging.getLogger('PcapDevice')
-
-    def _setup(self):
-        try:
-            self.datalink_handler = scapy.config.conf.l2types[self.datalink]
-        except KeyError:
-            raise ValueError(
-                "Datalink-type %i not supported by Scapy" % self.datalink
-            )
-        if self.use_bpf:
-            self.set_filter(PcapDevice.BASE_BPF)
-
-    def set_filter(self, filter_string):
-        try:
-            CPcapDevice.set_filter(self, filter_string)
-        except ValueError:
-            self.use_bpf = False
-            warnings.warn(
-                "Failed to compile BPF-filter. This may be due to "
-                "a bug in Pyrit or because your version of "
-                "libpcap is too old. Falling back to unfiltered "
-                "processing..."
-            )
-
-    def _update_bpf_filter(self):
-        """ Update the BPF-filter to exclude certain traffic from stations
-            and AccessPoints once they are known.
-        """
-        if self.use_bpf is False:
-            return
-        bpf = PcapDevice.BASE_BPF
-        if len(self.filtered_aps) > 0:
-            # Prune list randomly to prevent filter from getting too large
-            while len(self.filtered_aps) > 10:
-                self.filtered_aps.pop()
-            # Exclude beacons, prope-responses and association-requests
-            # once a AP's ESSID is known
-            bpf += " and not ((wlan host %s) and (subtype beacon or subtype probe-resp or subtype assoc-req))" % (" or ".join(self.filtered_aps), )
-        if len(self.filtered_stations) > 0:
-            while len(self.filtered_stations) > 10:
-                self.filtered_stations.pop()
-            # Exclude encrypted or null-typed data traffic once a station
-            # is known
-            bpf += " and not (wlan host %s) or (wlan[1] & 0x40 = 0 and type data and not subtype null)" % (" or ".join(self.filtered_stations), )
-        self.set_filter(bpf)
-
-    def filter_ap(self, ap):
-        self.filtered_aps.add(ap.mac)
-        self._update_bpf_filter()
-
-    def filter_station(self, station):
-        self.filtered_stations.add(station.mac)
-        self._update_bpf_filter()
-
-    def open_live(self, device_name):
-        """Open a device for capturing packets"""
-        self.logger.debug('open_live()')
-        CPcapDevice.open_live(self, device_name)
-        self._setup()
-
-    def close(self):
-        self.logger.debug('close()')
-        super(PcapDevice, self).close()
-
-    def open_offline(self, fname):
-        """Open a pcap-savefile"""
-        if fname.endswith('.gz'):
-            tfile = tempfile.NamedTemporaryFile()
-            try:
-                with FileWrapper(fname) as infile:
-                    while True:
-                        buf = infile.read(1024 ** 2)
-                        if not buf:
-                            break
-                        tfile.write(buf)
-                tfile.flush()
-                CPcapDevice.open_offline(self, tfile.name)
-            finally:
-                tfile.close()
-        else:
-            CPcapDevice.open_offline(self, fname)
-        self._setup()
-
-    def read(self):
-        """Read one packet from the capture-source."""
-        r = CPcapDevice.read(self)
-        if r is not None:
-            ts, pckt_string = r
-            pckt = self.datalink_handler(pckt_string)
-            return pckt
-        else:
-            return None
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        pckt = self.read()
-        if pckt is not None:
-            return pckt
-        else:
-            raise StopIteration
-
-    def __enter__(self):
-        if self.type is None:
-            raise RuntimeError("No device/file opened yet")
-        return self
-
-    def __exit__(self, type, value, traceback):
-        self.close()
-
-
 class PacketParser(object):
     """Parse packets from a capture-source and reconstruct AccessPoints,
        Stations and EAPOLAuthentications from the data.
@@ -580,7 +382,7 @@ class PacketParser(object):
 
     def __init__(
         self,
-        pcapfile=None,
+        g=None,
         new_ap_callback=None,
         new_station_callback=None,
         new_keypckt_callback=None,
@@ -599,12 +401,13 @@ class PacketParser(object):
         self.stop_callback = new_stop_parsing_callback
         self.pkt_callback = new_pkt_callback
         self.use_bpf = use_bpf
-        if pcapfile is not None:
-            self.parse_file(pcapfile)
+        self.g = g
 
     def _find_ssid(self, pckt):
         for elt_pckt in pckt.iterSubPackets(scapy.layers.dot11.Dot11Elt):
-            if elt_pckt.isFlagSet('ID', 'SSID') and len(elt_pckt.info) == elt_pckt.len and not all(c == '\x00' for c in elt_pckt.info):
+            if elt_pckt.isFlagSet('ID', 'SSID') and \
+               len(elt_pckt.info) == elt_pckt.len and \
+               not all(c == '\x00' for c in elt_pckt.info):
                 return elt_pckt.info
 
     def _add_ap(self, ap_mac, pckt):
@@ -632,20 +435,6 @@ class PacketParser(object):
             for auth in new_auths:
                 self.new_auth_callback((station, auth))
 
-    def parse_file(self, pcapfile):
-        with PcapDevice(pcapfile, self.use_bpf) as rdr:
-            self.parse_pcapdevice(rdr)
-
-    def _filter_sta(self, reader, sta_callback, sta):
-        reader.filter_station(sta)
-        if sta_callback is not None:
-            sta_callback(sta)
-
-    def _filter_ap(self, reader, ap_callback, ap):
-        reader.filter_ap(ap)
-        if ap_callback is not None:
-            ap_callback(ap)
-
     def parse_pcapdevice(self, reader):
         """Parse all packets from a instance of PcapDevice.
 
@@ -658,14 +447,6 @@ class PacketParser(object):
             raise TypeError("Argument must be of type PcapDevice")
         sta_callback = self.new_station_callback
         ap_callback = self.new_ap_callback
-        # Update the filter only when parsing offline dumps. The kernel can't
-        # take complex filters and libpcap starts throwing unmanageable
-        # warnings....
-        if reader.type == 'offline':
-            self.new_station_callback = lambda sta: \
-                self._filter_sta(reader, sta_callback, sta)
-            self.new_ap_callback = lambda ap: \
-                self._filter_ap(reader, ap_callback, ap)
 
         for pckt in reader:
             self.parse_packet(pckt)
@@ -701,10 +482,12 @@ class PacketParser(object):
             self._add_ap(dot11_pckt.addr2, dot11_pckt)
 
         # From now on we are only interested in unicast packets
-        if dot11_pckt.isFlagSet('FCfield', 'to-DS') and not int(dot11_pckt.addr2[1], 16) & 1:
+        if dot11_pckt.isFlagSet('FCfield', 'to-DS') \
+           and not int(dot11_pckt.addr2[1], 16) & 1:
             ap_mac = dot11_pckt.addr1
             sta_mac = dot11_pckt.addr2
-        elif dot11_pckt.isFlagSet('FCfield', 'from-DS') and not int(dot11_pckt.addr1[1], 16) & 1:
+        elif dot11_pckt.isFlagSet('FCfield', 'from-DS') \
+                and not int(dot11_pckt.addr1[1], 16) & 1:
             ap_mac = dot11_pckt.addr2
             sta_mac = dot11_pckt.addr1
         else:
@@ -726,21 +509,30 @@ class PacketParser(object):
 
         # Frame 1: pairwise set, install unset, ack set, mic unset
         # results in ANonce
-        if wpakey_pckt.areFlagsSet('KeyInfo', ('pairwise', 'ack')) and wpakey_pckt.areFlagsNotSet('KeyInfo', ('install', 'mic')):
+        if wpakey_pckt.areFlagsSet('KeyInfo', ('pairwise', 'ack')) \
+           and wpakey_pckt.areFlagsNotSet('KeyInfo', ('install', 'mic')):
             self._add_keypckt(sta, 0, pckt)
 
         # Frame 2: pairwise set, install unset, ack unset, mic set,
         # SNonce != 0. Results in SNonce, MIC and keymic_frame
-        elif wpakey_pckt.areFlagsSet('KeyInfo', ('pairwise', 'mic')) and wpakey_pckt.areFlagsNotSet('KeyInfo', ('install', 'ack')) and not all(c == '\x00' for c in wpakey_pckt.Nonce):
+        elif wpakey_pckt.areFlagsSet('KeyInfo', ('pairwise', 'mic')) \
+                and wpakey_pckt.areFlagsNotSet('KeyInfo', ('install', 'ack')) \
+                and not all(c == '\x00' for c in wpakey_pckt.Nonce):
             self._add_keypckt(sta, 1, pckt)
 
         # Frame 3: pairwise set, install set, ack set, mic set
         # Results in ANonce
-        elif wpakey_pckt.areFlagsSet('KeyInfo', ('pairwise', 'install', 'ack', 'mic')):
+        elif wpakey_pckt.areFlagsSet(
+            'KeyInfo',
+            ('pairwise', 'install', 'ack', 'mic')
+        ):
             self._add_keypckt(sta, 2, pckt)
 
     def __iter__(self):
-        return [ap for essid, ap in sorted([(ap.essid, ap) for ap in self.air.itervalues()])].__iter__()
+        return [
+            ap for essid,
+            ap in sorted([(ap.essid, ap) for ap in self.air.itervalues()])
+        ].__iter__()
 
     def __getitem__(self, bssid):
         return self.air[bssid]

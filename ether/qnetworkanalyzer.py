@@ -12,7 +12,7 @@ from PyQt4.QtGui import (
 from PyQt4.QtCore import (
     QString
 )
-from stalist import QStaList
+from qstalist import QStaList
 from iflist import IFlist
 from qmultigraph_widget import QNetworkGraphViewer
 from qnetwork_graph import QNetworkGraph
@@ -96,10 +96,10 @@ class MainWindow(QMainWindow):
         super(MainWindow, self).close()
 
     def forwardClose(self):
-        print 'forwardClose'
+        self.logger.debug('forwardClose()')
         iface = self.ifaceList.get_iface()
         if iface and iface.monitor():
-            print iface.monitor()
+            self.logger.debug('forwardClose(%s)', iface.monitor())
             msgBox = QMessageBox()
             msgBox.setText(_fromUtf8(
                 "Вы хотите выключить это устройство?"

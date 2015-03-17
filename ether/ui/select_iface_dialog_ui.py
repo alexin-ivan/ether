@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'select_iface_dialog.ui'
 #
-# Created: Thu Feb 19 11:55:19 2015
+# Created: Mon Mar 16 11:33:26 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
