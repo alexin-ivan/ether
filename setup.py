@@ -40,7 +40,6 @@ setup_args = dict(
     platforms=['any'],
     packages=['ether'],
     py_modules=[],
-    scripts=['ether_run.py'],
     ext_modules=[PcapLibExt],
     options={'install': {'optimize': 1}},
     install_requires=[
