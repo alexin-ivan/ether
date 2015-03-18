@@ -26,7 +26,7 @@ Programm for explore wi-fi networks
 
 Для Ubuntu 14.04
 ```bash
-$ sudo apt-get install python-scapy python-qt4 pyqt4-dev-tools aircrack-ng python-networkx graphviz
+$ sudo apt-get install python-scapy python-qt4 pyqt4-dev-tools aircrack-ng python-networkx graphviz python-dev libpcap-dev python-netaddr
 ```
 Что заимствовано из этих пакетов:
 
@@ -34,3 +34,5 @@ $ sudo apt-get install python-scapy python-qt4 pyqt4-dev-tools aircrack-ng pytho
 * python-qt4 - GUI программы
 * aircrack-ng  - в данном ПО уже реализованы некоторые виды атак
 * python-networkx - фреймворк для работы с графами
+* libpcap-dev, python-dev - для сборки Сишной библиотеки pcaplib (чтение/запись пакетов)
+* python-netaddr - для работы с MAC-адресами (извлечение vendor'ов)
